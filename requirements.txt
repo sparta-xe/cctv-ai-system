@@ -7,3 +7,7 @@ faiss-cpu
 numpy
 jinja2
 python-multipart
+transformers
+torch
+Pillow
+openai

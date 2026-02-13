@@ -12,6 +12,9 @@ from embedder import add, search
 from database import add_frame, get_all_frames
 from tracker import assign_id
 from auth import login
+from clip_engine import add_image_embedding, get_clip_status
+from hybrid_search import hybrid_search, get_search_stats
+from video_builder import create_highlight_video
 
 app = FastAPI(title="CCTV AI System")
 templates = Jinja2Templates(directory="templates")
@@ -19,9 +22,15 @@ templates = Jinja2Templates(directory="templates")
 FRAME_FOLDER = "storage/frames"
 STORAGE_FOLDER = "storage"
 VIDEO_FOLDER = "storage/videos"
+MARKED_FOLDER = "storage/marked"
+HIGHLIGHTS_FOLDER = "storage/highlights"
+
+# Create all necessary directories
 os.makedirs(FRAME_FOLDER, exist_ok=True)
 os.makedirs(STORAGE_FOLDER, exist_ok=True)
 os.makedirs(VIDEO_FOLDER, exist_ok=True)
+os.makedirs(MARKED_FOLDER, exist_ok=True)
+os.makedirs(HIGHLIGHTS_FOLDER, exist_ok=True)
 
 # Serve static files (frames)
 app.mount("/storage", StaticFiles(directory="storage"), name="storage")
@@ -29,6 +38,22 @@ app.mount("/storage", StaticFiles(directory="storage"), name="storage")
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
+
+@app.get("/health")
+def health_check():
+    """Health check endpoint for monitoring"""
+    clip_status = get_clip_status()
+    all_frames = get_all_frames()
+    
+    return {
+        "status": "healthy",
+        "version": "2.0",
+        "clip_available": clip_status.get('available', False),
+        "clip_device": clip_status.get('device', 'unknown'),
+        "frames_indexed": len(all_frames),
+        "search_engine": "hybrid" if clip_status.get('available') else "text-only",
+        "timestamp": __import__('datetime').datetime.now().isoformat()
+    }
 
 @app.post("/upload/")
 async def upload_video(file: UploadFile):
@@ -39,10 +64,21 @@ async def upload_video(file: UploadFile):
     allowed_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv']
     file_ext = os.path.splitext(file.filename)[1].lower()
     if file_ext not in allowed_extensions:
-        raise HTTPException(status_code=400, detail="Invalid video format")
+        raise HTTPException(status_code=400, detail=f"Invalid video format. Allowed: {', '.join(allowed_extensions)}")
     
-    # Save to videos folder
-    video_filename = f"video_{file.filename}"
+    # Validate file size (max 500MB)
+    file.file.seek(0, 2)  # Seek to end
+    file_size = file.file.tell()
+    file.file.seek(0)  # Reset to beginning
+    
+    max_size = 500 * 1024 * 1024  # 500MB
+    if file_size > max_size:
+        raise HTTPException(status_code=400, detail=f"File too large. Max size: 500MB")
+    
+    # Sanitize filename
+    import re
+    safe_filename = re.sub(r'[^\w\s.-]', '', file.filename)
+    video_filename = f"video_{safe_filename}"
     path = f"{VIDEO_FOLDER}/{video_filename}"
     
     try:
@@ -90,7 +126,13 @@ async def upload_video(file: UploadFile):
                     "video_filename": video_filename
                 }
                 
+                # Add to text search index
                 add(" ".join(objects), meta)
+                
+                # Add to CLIP visual search index
+                add_image_embedding(img_path, meta)
+                
+                # Add to database
                 add_frame(meta)
                 processed_frames += 1
                 
@@ -111,12 +153,16 @@ async def upload_video(file: UploadFile):
     finally:
         cap.release()
     
+    # Get search engine status
+    search_stats = get_search_stats()
+    
     return {
         "status": "Processed",
         "frames": processed_frames,
         "alerts": alerts,
         "total_frames": frame_count,
-        "video_filename": video_filename
+        "video_filename": video_filename,
+        "search_engine": search_stats
     }
 
 @app.post("/query/")
@@ -132,7 +178,22 @@ def query(
     if not text.strip():
         raise HTTPException(status_code=400, detail="Query text cannot be empty")
     
-    results = search(text)
+    # Use hybrid search for better accuracy
+    results = hybrid_search(text, top_k=10)
+    
+    # Handle empty results
+    if not results:
+        return {
+            "role": role,
+            "query": text,
+            "results": [],
+            "count": 0,
+            "timeline_markers": [],
+            "video_filename": None,
+            "highlight_video": None,
+            "search_method": "hybrid" if get_clip_status()['available'] else "text-only",
+            "message": "No results found. Try a different query."
+        }
     
     # Add timeline data for video playback
     timeline_markers = []
@@ -142,10 +203,21 @@ def query(
         timeline_markers.append({
             "timestamp": result.get("timestamp", 0),
             "objects": result.get("objects", []),
-            "person_id": result.get("person_id")
+            "person_id": result.get("person_id"),
+            "search_score": result.get("search_score", 0)
         })
         if not video_filename and "video_filename" in result:
             video_filename = result.get("video_filename")
+    
+    # Create highlight video if results found
+    highlight_video = None
+    if results and len(results) > 0:
+        try:
+            highlight_path = f"{STORAGE_FOLDER}/highlight_{video_filename}"
+            if create_highlight_video(results, highlight_path, fps=2):
+                highlight_video = highlight_path
+        except Exception as e:
+            print(f"Could not create highlight video: {e}")
     
     return {
         "role": role,
@@ -153,7 +225,9 @@ def query(
         "results": results,
         "count": len(results),
         "timeline_markers": timeline_markers,
-        "video_filename": video_filename
+        "video_filename": video_filename,
+        "highlight_video": highlight_video,
+        "search_method": "hybrid" if get_clip_status()['available'] else "text-only"
     }
 
 @app.get("/stats/")
