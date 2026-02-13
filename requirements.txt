@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+opencv-python
+ultralytics
+sentence-transformers
+faiss-cpu
+numpy
+jinja2
+python-multipart

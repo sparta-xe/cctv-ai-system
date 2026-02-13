@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCTV AI Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        input[type="text"],
+        input[type="password"],
+        input[type="file"] {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        label {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        
+        .status {
+            padding: 15px;
+            background: #f0f9ff;
+            border-left: 4px solid #667eea;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .status.show {
+            display: block;
+        }
+        
+        .alert {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+        }
+        
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        
+        .error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+        
+        .result-item {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+        
+        .result-item strong {
+            color: #667eea;
+        }
+        
+        .result-image {
+            flex-shrink: 0;
+            width: 300px;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            object-fit: cover;
+        }
+        
+        .result-details {
+            flex: 1;
+        }
+        
+        .result-header {
+            font-size: 1.2em;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        
+        .result-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .result-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .result-meta-label {
+            font-weight: 600;
+            color: #555;
+            min-width: 100px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #667eea;
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            margin: 2px;
+        }
+        
+        .badge.person {
+            background: #28a745;
+        }
+        
+        .badge.car {
+            background: #17a2b8;
+        }
+        
+        .badge.backpack {
+            background: #ffc107;
+            color: #333;
+        }
+        
+        .queried-object {
+            animation: pulse 2s infinite;
+            position: relative;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+        
+        .timestamp-badge {
+            background: #6c757d;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .results-grid {
+            display: grid;
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .result-item {
+                flex-direction: column;
+            }
+            
+            .result-image {
+                width: 100%;
+            }
+        }
+        
+        .timeline-marker {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: #28a745;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .timeline-marker:hover {
+            width: 5px;
+            background: #218838;
+        }
+        
+        .timeline-marker::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            background: #28a745;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        
+        .current-time-marker {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #ffc107;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .marker-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            margin-bottom: 5px;
+            display: none;
+        }
+        
+        .timeline-marker:hover .marker-tooltip {
+            display: block;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .info-box {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .info-box h3 {
+            color: #2196F3;
+            margin-bottom: 10px;
+        }
+        
+        .info-box ul {
+            margin-left: 20px;
+        }
+        
+        .info-box li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 AI CCTV System</h1>
+        
+        <div class="info-box">
+            <h3>📋 Quick Guide</h3>
+            <ul>
+                <li><strong>Upload:</strong> Select a video file and click upload to process</li>
+                <li><strong>Search:</strong> Use credentials (admin/admin123) to search frames</li>
+                <li><strong>Queries:</strong> Try "person", "car", "person with backpack"</li>
+                <li><strong>Highlighting:</strong> Queried objects shown with THICK BRIGHT boxes and YELLOW labels</li>
+                <li><strong>Other objects:</strong> Shown with thin gray boxes for context</li>
+                <li><strong>Badges:</strong> Queried objects have ⭐ star and golden border</li>
+                <li><strong>Video Playback:</strong> Watch the original video with timeline markers</li>
+                <li><strong>Click markers:</strong> Jump to specific moments in the video</li>
+            </ul>
+        </div>
+        
+        <div class="grid">
+            <div class="card">
+                <h2>📤 Upload Video</h2>
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="videoFile">Select Video File:</label>
+                        <input type="file" id="videoFile" name="file" accept="video/*" required/>
+                    </div>
+                    <button type="submit" id="uploadBtn">Upload & Process</button>
+                </form>
+                <div id="uploadStatus" class="status"></div>
+            </div>
+            
+            <div class="card">
+                <h2>🔍 Search</h2>
+                <form id="searchForm">
+                    <div class="form-group">
+                        <label for="username">Username:</label>
+                        <input type="text" id="username" name="username" placeholder="admin" value="admin" required/>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" name="password" placeholder="admin123" value="admin123" required/>
+                    </div>
+                    <div class="form-group">
+                        <label for="query">Query:</label>
+                        <input type="text" id="query" name="text" placeholder="person with backpack" required/>
+                    </div>
+                    <button type="submit" id="searchBtn">Search</button>
+                </form>
+                <div id="searchStatus" class="status"></div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>📊 Results</h2>
+            <div id="videoPlayerSection" style="display: none; margin-bottom: 30px;">
+                <h3 style="color: #667eea; margin-bottom: 15px;">🎬 Video Playback with Timeline</h3>
+                <div style="position: relative;">
+                    <video id="videoPlayer" controls style="width: 100%; max-height: 500px; border-radius: 8px; background: #000;">
+                        Your browser does not support video playback.
+                    </video>
+                    <div id="timelineMarkers" style="position: relative; height: 40px; background: #f0f0f0; border-radius: 4px; margin-top: 10px; overflow: hidden;">
+                        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; padding: 0 10px;">
+                            <span style="font-size: 12px; color: #666;">Timeline markers will appear here</span>
+                        </div>
+                    </div>
+                    <div id="markerLegend" style="margin-top: 10px; display: flex; gap: 15px; flex-wrap: wrap;">
+                        <span style="font-size: 12px;"><span style="display: inline-block; width: 12px; height: 12px; background: #28a745; border-radius: 50%; margin-right: 5px;"></span>Query Match</span>
+                        <span style="font-size: 12px;"><span style="display: inline-block; width: 12px; height: 12px; background: #ffc107; border-radius: 50%; margin-right: 5px;"></span>Current Position</span>
+                    </div>
+                </div>
+            </div>
+            <div id="results"></div>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const status = document.getElementById('uploadStatus');
+            const btn = document.getElementById('uploadBtn');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Processing...';
+            status.textContent = '⏳ Processing video... This may take a few minutes.';
+            status.className = 'status show';
+            
+            try {
+                const response = await fetch('/upload/', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Upload failed');
+                }
+                
+                const data = await response.json();
+                
+                let message = `✅ ${data.status} - ${data.frames} frames extracted from ${data.total_frames} total frames`;
+                status.textContent = message;
+                status.className = 'status show success';
+                
+                if (data.alerts && data.alerts.length > 0) {
+                    status.innerHTML += '<br><br><strong>Alerts:</strong><br>' + data.alerts.join('<br>');
+                    status.className = 'status show alert';
+                }
+            } catch (error) {
+                status.textContent = '❌ Error: ' + error.message;
+                status.className = 'status show error';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Upload & Process';
+            }
+        });
+        
+        document.getElementById('searchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const status = document.getElementById('searchStatus');
+            const resultsDiv = document.getElementById('results');
+            const btn = document.getElementById('searchBtn');
+            const videoSection = document.getElementById('videoPlayerSection');
+            const videoPlayer = document.getElementById('videoPlayer');
+            const timelineMarkers = document.getElementById('timelineMarkers');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Searching...';
+            status.textContent = '🔍 Searching...';
+            status.className = 'status show';
+            
+            try {
+                const response = await fetch('/query/', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Search failed');
+                }
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    status.textContent = '❌ ' + data.error;
+                    status.className = 'status show error';
+                    return;
+                }
+                
+                status.textContent = `✅ Found ${data.count} results (Role: ${data.role})`;
+                status.className = 'status show success';
+                
+                // Setup video playback if video filename exists
+                if (data.video_filename && data.timeline_markers && data.timeline_markers.length > 0) {
+                    const videoFilename = data.video_filename;
+                    videoPlayer.src = `/video/${videoFilename}`;
+                    videoSection.style.display = 'block';
+                    
+                    // Get video info for timeline
+                    const videoInfoResponse = await fetch(`/video_info/${videoFilename}`);
+                    const videoInfo = await videoInfoResponse.json();
+                    const duration = videoInfo.duration;
+                    
+                    // Clear existing markers
+                    timelineMarkers.innerHTML = '';
+                    
+                    // Add timeline markers
+                    data.timeline_markers.forEach((marker, index) => {
+                        const position = (marker.timestamp / duration) * 100;
+                        const markerDiv = document.createElement('div');
+                        markerDiv.className = 'timeline-marker';
+                        markerDiv.style.left = position + '%';
+                        markerDiv.title = `${marker.timestamp.toFixed(2)}s - ${marker.objects.join(', ')}`;
+                        
+                        const tooltip = document.createElement('div');
+                        tooltip.className = 'marker-tooltip';
+                        tooltip.textContent = `${marker.timestamp.toFixed(2)}s - ${marker.objects.join(', ')}`;
+                        markerDiv.appendChild(tooltip);
+                        
+                        markerDiv.addEventListener('click', () => {
+                            videoPlayer.currentTime = marker.timestamp;
+                            videoPlayer.play();
+                        });
+                        
+                        timelineMarkers.appendChild(markerDiv);
+                    });
+                    
+                    // Add current time marker
+                    const currentMarker = document.createElement('div');
+                    currentMarker.className = 'current-time-marker';
+                    currentMarker.id = 'currentTimeMarker';
+                    timelineMarkers.appendChild(currentMarker);
+                    
+                    // Update current time marker position
+                    videoPlayer.addEventListener('timeupdate', () => {
+                        const position = (videoPlayer.currentTime / duration) * 100;
+                        currentMarker.style.left = position + '%';
+                    });
+                } else {
+                    videoSection.style.display = 'none';
+                }
+                
+                if (data.results.length === 0) {
+                    resultsDiv.innerHTML = '<p style="color: #666; text-align: center; padding: 40px;">No results found. Try uploading a video first or use a different query.</p>';
+                } else {
+                    // Store query for image annotations
+                    const searchQuery = data.query || '';
+                    
+                    resultsDiv.innerHTML = '<div class="results-grid">' + data.results.map((r, i) => {
+                        // Extract frame filename from path
+                        const imagePath = r.image ? r.image.replace(/\\/g, '/') : '';
+                        const frameFilename = imagePath.split('/').pop();
+                        
+                        // Use annotated image endpoint with query parameter to highlight searched objects
+                        const annotatedImageUrl = `/annotated_image/${frameFilename}?query=${encodeURIComponent(searchQuery)}`;
+                        const fallbackImageUrl = '/' + imagePath;
+                        
+                        const timestamp = r.timestamp ? r.timestamp.toFixed(2) : '0.00';
+                        const objects = r.objects || [];
+                        const personId = r.person_id || null;
+                        
+                        // Format time as MM:SS
+                        const minutes = Math.floor(timestamp / 60);
+                        const seconds = (timestamp % 60).toFixed(0).padStart(2, '0');
+                        const timeFormatted = `${minutes}:${seconds}`;
+                        
+                        // Highlight queried objects in the badge list
+                        const queryLower = searchQuery.toLowerCase();
+                        const objectBadges = objects.map(obj => {
+                            const isQueried = queryLower.includes(obj.toLowerCase());
+                            const badgeClass = isQueried ? `badge ${obj} queried-object` : `badge ${obj}`;
+                            const badgeStyle = isQueried ? 'style="font-weight: bold; border: 2px solid #ffc107; box-shadow: 0 0 10px rgba(255,193,7,0.5);"' : '';
+                            return `<span class="${badgeClass}" ${badgeStyle}>${obj}${isQueried ? ' ⭐' : ''}</span>`;
+                        }).join(' ');
+                        
+                        return `
+                        <div class="result-item">
+                            <img src="${annotatedImageUrl}" alt="Frame ${i+1}" class="result-image" 
+                                 onerror="this.onerror=null; this.src='${fallbackImageUrl}';"
+                                 title="Click to view full size or jump to video (Queried objects highlighted)"
+                                 style="cursor: pointer;"
+                                 onclick="if(document.getElementById('videoPlayer').src) { document.getElementById('videoPlayer').currentTime = ${timestamp}; document.getElementById('videoPlayer').play(); document.getElementById('videoPlayerSection').scrollIntoView({behavior: 'smooth'}); } else { window.open('${annotatedImageUrl}', '_blank'); }"/>
+                            <div class="result-details">
+                                <div class="result-header">🎯 Result ${i+1}</div>
+                                <div class="result-meta">
+                                    <div class="result-meta-item">
+                                        <span class="result-meta-label">⏱️ Timestamp:</span>
+                                        <span class="timestamp-badge" style="cursor: pointer;" onclick="if(document.getElementById('videoPlayer').src) { document.getElementById('videoPlayer').currentTime = ${timestamp}; document.getElementById('videoPlayer').play(); }" title="Click to jump to this time in video">${timeFormatted} (${timestamp}s)</span>
+                                    </div>
+                                    <div class="result-meta-item">
+                                        <span class="result-meta-label">🔍 Detected:</span>
+                                        <div>
+                                            ${objectBadges}
+                                            ${objects.length === 0 ? '<span style="color: #999;">No objects</span>' : ''}
+                                        </div>
+                                    </div>
+                                    ${personId ? `
+                                    <div class="result-meta-item">
+                                        <span class="result-meta-label">👤 Person ID:</span>
+                                        <span class="badge person">${personId}</span>
+                                    </div>
+                                    ` : ''}
+                                    <div class="result-meta-item">
+                                        <span class="result-meta-label">📁 Frame:</span>
+                                        <code style="font-size: 11px; color: #666;">${frameFilename}</code>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        `;
+                    }).join('') + '</div>';
+                }
+            } catch (error) {
+                status.textContent = '❌ Error: ' + error.message;
+                status.className = 'status show error';
+                resultsDiv.innerHTML = '';
+                videoSection.style.display = 'none';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Search';
+            }
+        });
+    </script>
+</body>
+</html>
