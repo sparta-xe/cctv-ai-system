@@ -220,6 +220,9 @@ def query(
         if not video_filename and "video_filename" in result:
             video_filename = result.get("video_filename")
     
+    # Sort timeline markers by timestamp (ascending order)
+    timeline_markers.sort(key=lambda x: x["timestamp"])
+    
     # Create highlight video if results found
     highlight_video = None
     if results and len(results) > 0:

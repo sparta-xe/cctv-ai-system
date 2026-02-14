@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI CCTV Intelligence System</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>AI CCTV Intelligence System v3.0</title>
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -240,9 +243,112 @@
         .border-animate {
             animation: borderGlow 3s ease-in-out infinite;
         }
+        
+        /* Image Modal/Lightbox */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            position: relative;
+            max-width: 90%;
+            max-height: 90%;
+            animation: zoomIn 0.3s ease;
+        }
+        
+        .modal-image {
+            max-width: 100%;
+            max-height: 90vh;
+            border-radius: 12px;
+            border: 3px solid #38bdf8;
+            box-shadow: 0 0 50px rgba(56, 189, 248, 0.5);
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            color: #fff;
+            font-size: 32px;
+            font-weight: bold;
+            cursor: pointer;
+            background: rgba(239, 68, 68, 0.8);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .modal-close:hover {
+            background: rgba(239, 68, 68, 1);
+            transform: rotate(90deg);
+        }
+        
+        .modal-info {
+            position: absolute;
+            bottom: -60px;
+            left: 0;
+            right: 0;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            text-align: center;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes zoomIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        
+        /* Keyframe hover effect */
+        .keyframe-card {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .keyframe-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
+        }
     </style>
 </head>
 <body class="gradient-bg min-h-screen text-white cyber-grid">
+    
+    <!-- Image Modal -->
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+            <img id="modalImage" class="modal-image" src="" alt="Keyframe Analysis">
+            <div class="modal-info">
+                <p id="modalInfo" class="text-cyan-400 text-sm"></p>
+                <p class="text-slate-400 text-xs mt-1">Double-click image to jump to video</p>
+            </div>
+        </div>
+    </div>
     
     <!-- Parallax Stars -->
     <div class="stars" id="stars"></div>
@@ -321,12 +427,13 @@
                     </div>
                     
                     <form id="uploadForm" enctype="multipart/form-data" class="space-y-4">
-                        <div class="border-2 border-dashed border-cyan-500/30 rounded-xl p-8 text-center hover:border-cyan-500 transition cursor-pointer">
+                        <div id="dropZone" class="border-2 border-dashed border-cyan-500/30 rounded-xl p-8 text-center hover:border-cyan-500 transition cursor-pointer">
                             <input type="file" name="file" id="fileInput" class="hidden" accept="video/*"/>
-                            <label for="fileInput" class="cursor-pointer">
-                                <i data-lucide="file-video" class="icon-lg mx-auto mb-3 w-12 h-12"></i>
-                                <p class="text-slate-400">Click to upload or drag and drop</p>
-                                <p class="text-xs text-cyan-400/50 mt-1">MP4, AVI, MOV up to 500MB</p>
+                            <label for="fileInput" class="cursor-pointer block">
+                                <i data-lucide="file-video" class="icon-lg mx-auto mb-3 w-12 h-12" id="uploadIcon"></i>
+                                <p class="text-slate-400" id="uploadText">Click to upload or drag and drop</p>
+                                <p class="text-xs text-cyan-400/50 mt-1" id="uploadSubtext">MP4, AVI, MOV up to 500MB</p>
+                                <p class="text-sm text-green-400 mt-2 hidden" id="fileName"></p>
                             </label>
                         </div>
                         
@@ -511,6 +618,97 @@
         setInterval(updateTime, 1000);
         updateTime();
         
+        // Drag and Drop functionality
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadText = document.getElementById('uploadText');
+        const uploadSubtext = document.getElementById('uploadSubtext');
+        const fileName = document.getElementById('fileName');
+        const uploadIcon = document.getElementById('uploadIcon');
+        
+        console.log('Drag & Drop initialized:', {dropZone, fileInput, uploadText});
+        
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        // Highlight drop zone when dragging over it
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight(e) {
+            dropZone.classList.add('border-cyan-500', 'bg-cyan-500/10');
+            dropZone.classList.remove('border-cyan-500/30');
+        }
+        
+        function unhighlight(e) {
+            dropZone.classList.remove('border-cyan-500', 'bg-cyan-500/10');
+            dropZone.classList.add('border-cyan-500/30');
+        }
+        
+        // Handle dropped files
+        dropZone.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            console.log('File dropped!', e.dataTransfer.files);
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            if (files.length > 0) {
+                fileInput.files = files;
+                showFileSelected(files[0]);
+            }
+        }
+        
+        // Handle file input change
+        fileInput.addEventListener('change', function(e) {
+            console.log('File selected via input:', this.files);
+            if (this.files.length > 0) {
+                showFileSelected(this.files[0]);
+            }
+        });
+        
+        // Show file selected feedback
+        function showFileSelected(file) {
+            console.log('Showing file selected:', file.name, file.size);
+            uploadText.textContent = 'File selected:';
+            uploadSubtext.classList.add('hidden');
+            fileName.textContent = `📹 ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`;
+            fileName.classList.remove('hidden');
+            dropZone.classList.add('border-green-500', 'bg-green-500/10');
+            dropZone.classList.remove('border-cyan-500/30');
+            
+            // Change icon to check
+            uploadIcon.setAttribute('data-lucide', 'check-circle');
+            lucide.createIcons();
+        }
+        
+        // Reset file selection display
+        function resetFileDisplay() {
+            uploadText.textContent = 'Click to upload or drag and drop';
+            uploadSubtext.classList.remove('hidden');
+            fileName.classList.add('hidden');
+            fileName.textContent = '';
+            dropZone.classList.remove('border-green-500', 'bg-green-500/10');
+            dropZone.classList.add('border-cyan-500/30');
+            
+            // Reset icon
+            uploadIcon.setAttribute('data-lucide', 'file-video');
+            lucide.createIcons();
+        }
+        
         // Upload form
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -534,6 +732,10 @@
                 
                 document.getElementById('totalFrames').textContent = data.frames;
                 document.getElementById('totalAlerts').textContent = data.alerts.length;
+                
+                // Reset file input and display
+                fileInput.value = '';
+                resetFileDisplay();
                 
                 // Show alerts
                 if (data.alerts.length > 0) {
@@ -586,16 +788,27 @@
                     const frameFilename = imagePath.split('/').pop();
                     const query = data.query || '';
                     const matchedIndices = r.matched_detection_indices ? r.matched_detection_indices.join(',') : '';
+                    const imageUrl = `/annotated_image/${frameFilename}?query=${encodeURIComponent(query)}&matched_indices=${matchedIndices}`;
+                    const timestamp = r.timestamp;
+                    const timeStr = `${Math.floor(timestamp / 60)}:${(timestamp % 60).toFixed(0).padStart(2, '0')}`;
+                    const objects = r.objects.slice(0, 3).join(', ');
                     
                     return `
-                        <div class="result-card bg-slate-800/50 rounded-xl overflow-hidden hover-lift border border-cyan-500/20" style="animation-delay: ${i * 0.1}s">
-                            <img src="/annotated_image/${frameFilename}?query=${encodeURIComponent(query)}&matched_indices=${matchedIndices}" 
-                                 class="w-full h-32 object-cover cursor-pointer"
-                                 onclick="document.getElementById('videoPlayer').currentTime = ${r.timestamp}; document.getElementById('videoPlayer').play(); document.getElementById('videoSection').scrollIntoView({behavior: 'smooth'});"
+                        <div class="keyframe-card result-card bg-slate-800/50 rounded-xl overflow-hidden border border-cyan-500/20" 
+                             style="animation-delay: ${i * 0.1}s"
+                             data-image="${imageUrl}"
+                             data-timestamp="${timestamp}"
+                             data-time-str="${timeStr}"
+                             data-objects="${objects}"
+                             data-score="${(r.search_score * 100).toFixed(0)}">
+                            <img src="${imageUrl}" 
+                                 class="w-full h-32 object-cover"
+                                 onclick="openModal(this.parentElement)"
+                                 ondblclick="jumpToVideo(${timestamp})"
                             />
                             <div class="p-3">
                                 <div class="flex justify-between items-center mb-2">
-                                    <span class="text-xs text-slate-400">${Math.floor(r.timestamp / 60)}:${(r.timestamp % 60).toFixed(0).padStart(2, '0')}</span>
+                                    <span class="text-xs text-slate-400">${timeStr}</span>
                                     <span class="text-xs text-cyan-400">${(r.search_score * 100).toFixed(0)}%</span>
                                 </div>
                                 <div class="score-bar" style="width: ${r.search_score * 100}%"></div>
@@ -621,6 +834,65 @@
             } catch (error) {
                 status.className = 'mt-4 p-4 bg-red-500/20 border border-red-500 rounded-xl text-sm';
                 status.textContent = 'X Error: ' + error.message;
+            }
+        });
+        
+        // Modal functions for keyframe zoom
+        function openModal(cardElement) {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            const modalInfo = document.getElementById('modalInfo');
+            
+            const imageUrl = cardElement.getAttribute('data-image');
+            const timeStr = cardElement.getAttribute('data-time-str');
+            const objects = cardElement.getAttribute('data-objects');
+            const score = cardElement.getAttribute('data-score');
+            const timestamp = cardElement.getAttribute('data-timestamp');
+            
+            modalImage.src = imageUrl;
+            modalInfo.innerHTML = `
+                <strong>Time:</strong> ${timeStr} | 
+                <strong>Objects:</strong> ${objects} | 
+                <strong>Score:</strong> ${score}%
+            `;
+            
+            // Store timestamp for double-click
+            modalImage.setAttribute('data-timestamp', timestamp);
+            
+            modal.classList.add('active');
+            
+            // Close on background click
+            modal.onclick = function(e) {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            };
+            
+            // Double-click on modal image to jump to video
+            modalImage.ondblclick = function() {
+                jumpToVideo(parseFloat(timestamp));
+                closeModal();
+            };
+        }
+        
+        function closeModal() {
+            const modal = document.getElementById('imageModal');
+            modal.classList.remove('active');
+        }
+        
+        function jumpToVideo(timestamp) {
+            const videoPlayer = document.getElementById('videoPlayer');
+            const videoSection = document.getElementById('videoSection');
+            
+            videoPlayer.currentTime = timestamp;
+            videoPlayer.play();
+            videoSection.scrollIntoView({behavior: 'smooth', block: 'center'});
+        }
+        
+        // Keyboard shortcut: ESC to close modal
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
             }
         });
     </script>

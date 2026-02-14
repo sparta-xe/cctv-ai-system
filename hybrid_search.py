@@ -77,26 +77,59 @@ def hybrid_search(query, top_k=10):
         matched_detection_indices = []
         detections = meta.get("detections", [])
         
-        if parsed.get("objects"):
-            # Match query objects to specific detections
+        if parsed.get("objects") or parsed.get("colors"):
+            # Match query objects and colors to specific detections
             for idx, det in enumerate(detections):
                 det_label = det.get("label", "").lower()
-                for query_obj in parsed["objects"]:
-                    if query_obj.lower() in det_label:
-                        matched_detection_indices.append(idx)
-                        data["total_score"] += 0.2  # Boost for object match
-                        break
+                det_color = det.get("color", "").lower()
+                det_colors = [c.lower() for c in det.get("colors", [])]
+                
+                object_matched = False
+                color_matched = False
+                
+                # Check object match
+                if parsed.get("objects"):
+                    for query_obj in parsed["objects"]:
+                        if query_obj.lower() in det_label:
+                            object_matched = True
+                            break
+                else:
+                    # No object filter specified, so any object matches
+                    object_matched = True
+                
+                # Check color match
+                if parsed.get("colors"):
+                    for query_color in parsed["colors"]:
+                        query_color_lower = query_color.lower()
+                        if query_color_lower == det_color or query_color_lower in det_colors:
+                            color_matched = True
+                            break
+                else:
+                    # No color filter specified, so any color matches
+                    color_matched = True
+                
+                # BOTH conditions must be true (AND logic)
+                if object_matched and color_matched:
+                    matched_detection_indices.append(idx)
+                    
+                    # Boost score for matches
+                    if parsed.get("objects") and object_matched:
+                        data["total_score"] += 0.2
+                    if parsed.get("colors") and color_matched:
+                        data["total_score"] += 0.3
         else:
-            # No specific object filter - all detections are matches
+            # No specific object/color filter - all detections are matches
             matched_detection_indices = list(range(len(detections)))
         
         # Store matched detection indices
         data["matched_detection_indices"] = matched_detection_indices
         
-        filtered.append(data)
+        # Only include frames that have at least one matched detection
+        if len(matched_detection_indices) > 0:
+            filtered.append(data)
     
-    # Sort by total score
-    filtered.sort(key=lambda x: x["total_score"], reverse=True)
+    # Sort by total score (primary) and timestamp (secondary - ascending)
+    filtered.sort(key=lambda x: (-x["total_score"], x["meta"].get("timestamp", 0)))
     
     # Return top-k results with scores and matched detection indices
     results = []
@@ -107,6 +140,9 @@ def hybrid_search(query, top_k=10):
         result["clip_score"] = round(item["clip_score"], 3)
         result["matched_detection_indices"] = item["matched_detection_indices"]
         results.append(result)
+    
+    # Final sort by timestamp in ascending order (chronological)
+    results.sort(key=lambda x: x.get("timestamp", 0))
     
     return results
 
