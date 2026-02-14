@@ -65,8 +65,6 @@ cctv_ai_system/
 ├── 📁 Configuration
 │   ├── .env.example               # Environment variables template
 │   ├── .gitignore                 # Git ignore rules
-│   ├── Dockerfile                 # Docker container config
-│   ├── docker-compose.yml         # Docker Compose config
 │   └── setup.py                   # Package setup
 │
 └── 📁 Development
@@ -221,12 +219,6 @@ DETECTION_CONFIDENCE=0.5
 ### requirements.txt
 All Python dependencies with versions
 
-### Dockerfile
-Container configuration for Docker deployment
-
-### docker-compose.yml
-Multi-container orchestration
-
 ## 📊 Data Flow
 
 ```
@@ -265,8 +257,6 @@ User Search → hybrid_search.py → query_parser.py
 
 ## 📦 Deployment Files
 
-- **Dockerfile** - Container image
-- **docker-compose.yml** - Service orchestration
 - **DEPLOYMENT.md** - Deployment guide
 - **start.py** - Production startup
 

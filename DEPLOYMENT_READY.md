@@ -53,8 +53,6 @@
 **Configuration:**
 - `.env.example` - Environment template
 - `.gitignore` - Git ignore rules
-- `Dockerfile` - Docker config
-- `docker-compose.yml` - Compose config
 - `setup.py` - Package setup
 
 ### 3. New Files Created
@@ -75,7 +73,6 @@
 
 **DEPLOYMENT.md**
 - Local deployment
-- Docker deployment
 - Cloud deployment (AWS, Azure, GCP)
 - Nginx configuration
 - SSL setup
@@ -136,12 +133,11 @@ cctv_ai_system/
 │   ├── PROJECT_STRUCTURE.md
 │   └── LICENSE
 │
-├── Configuration (5)
+├── Configuration (3)
 │   ├── requirements.txt
 │   ├── .gitignore
 │   ├── .env.example
-│   ├── Dockerfile
-│   └── docker-compose.yml
+│   └── setup.py
 │
 ├── docs/ (70+ files)
 │   └── All documentation and guides
@@ -181,8 +177,6 @@ cctv_ai_system/
 - [x] .gitignore updated
 - [x] .env.example created
 - [x] requirements.txt verified
-- [x] Dockerfile present
-- [x] docker-compose.yml present
 
 ### ✅ Startup
 - [x] start.py created
@@ -209,15 +203,6 @@ pip install -r requirements.txt
 
 # Start server
 python start.py
-```
-
-### Docker Deployment
-```bash
-# Build and run
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
 ```
 
 ### Production Deployment
@@ -282,7 +267,6 @@ cp .env.example .env
 - ✅ Production-ready configuration
 
 ### Deployment Readiness
-- ✅ Docker support
 - ✅ Cloud deployment guides
 - ✅ Environment configuration
 - ✅ Security best practices

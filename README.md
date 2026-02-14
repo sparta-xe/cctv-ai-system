@@ -36,7 +36,7 @@ cd cctv-ai-system
 pip install -r requirements.txt
 
 # Start server
-python main.py
+python start.py
 ```
 
 ### Usage

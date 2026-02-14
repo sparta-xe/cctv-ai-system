@@ -13,27 +13,12 @@ Complete guide for deploying the AI CCTV Intelligence System to production.
 pip install -r requirements.txt
 
 # Start server
-python main.py
+python start.py
 
 # Server runs on http://localhost:8000
 ```
 
-### 2. Docker Deployment
-
-**Best for:** Containerized deployments, cloud platforms
-
-```bash
-# Build image
-docker build -t cctv-ai-system .
-
-# Run container
-docker run -p 8000:8000 -v $(pwd)/storage:/app/storage cctv-ai-system
-
-# Or use docker-compose
-docker-compose up -d
-```
-
-### 3. Cloud Deployment
+### 2. Cloud Deployment
 
 #### AWS EC2
 
@@ -117,9 +102,8 @@ curl https://sdk.cloud.google.com | bash
 # 2. Initialize
 gcloud init
 
-# 3. Build and deploy
-gcloud builds submit --tag gcr.io/PROJECT_ID/cctv-ai
-gcloud run deploy cctv-ai --image gcr.io/PROJECT_ID/cctv-ai --platform managed --region us-central1 --allow-unauthenticated
+# 3. Deploy using App Engine
+gcloud app deploy
 ```
 
 ## 🔒 Production Configuration
