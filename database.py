@@ -21,6 +21,18 @@ def get_all_frames():
     """Return all stored frames"""
     return frames
 
+def get_frames_by_video(video_filename):
+    """
+    Get all frames for a specific video
+    
+    Args:
+        video_filename: Name of the video file
+    
+    Returns:
+        list: Frames from that video
+    """
+    return [f for f in frames if f.get("video_filename") == video_filename]
+
 def get_frames_with_object(object_name):
     """
     Get all frames containing a specific object
@@ -41,3 +53,14 @@ def clear_database():
     """Clear all stored frames"""
     global frames
     frames = []
+
+def remove_video_frames(video_filename):
+    """
+    Remove all frames associated with a specific video
+    
+    Args:
+        video_filename: Name of the video file to remove
+    """
+    global frames
+    frames = [f for f in frames if f.get("video_filename") != video_filename]
+

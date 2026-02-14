@@ -8,11 +8,11 @@ import cv2
 import numpy as np
 
 from detector import detect
-from embedder import add, search
-from database import add_frame, get_all_frames
+from embedder import add, search, clear_embeddings
+from database import add_frame, get_all_frames, clear_database
 from tracker import assign_id
 from auth import login
-from clip_engine import add_image_embedding, get_clip_status
+from clip_engine import add_image_embedding, get_clip_status, clear_clip_index
 from hybrid_search import hybrid_search, get_search_stats
 from video_builder import create_highlight_video
 
@@ -470,6 +470,39 @@ def get_video_info(video_filename: str):
         "width": width,
         "height": height
     }
+
+@app.post("/clear_data/")
+def clear_all_data():
+    """
+    Clear all indexed data (database, embeddings, CLIP index)
+    Useful when starting fresh with a new video
+    """
+    try:
+        # Clear database
+        clear_database()
+        
+        # Clear text embeddings
+        clear_embeddings()
+        
+        # Clear CLIP embeddings
+        clear_clip_index()
+        
+        # Optionally clear frame files
+        # (Commented out to preserve files, uncomment if you want to delete them)
+        # import shutil
+        # if os.path.exists(FRAME_FOLDER):
+        #     shutil.rmtree(FRAME_FOLDER)
+        #     os.makedirs(FRAME_FOLDER, exist_ok=True)
+        
+        return {
+            "status": "success",
+            "message": "All data cleared successfully",
+            "frames_cleared": True,
+            "embeddings_cleared": True,
+            "clip_cleared": True
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error clearing data: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

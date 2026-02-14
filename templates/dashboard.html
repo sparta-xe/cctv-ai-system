@@ -421,9 +421,15 @@
                 
                 <!-- Upload Section -->
                 <div class="glass rounded-2xl p-6 slide-in hover-lift border-animate">
-                    <div class="flex items-center gap-2 mb-4">
-                        <i data-lucide="upload-cloud" class="icon-lg"></i>
-                        <h3 class="text-lg font-semibold text-cyan-400">Upload CCTV Footage</h3>
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="upload-cloud" class="icon-lg"></i>
+                            <h3 class="text-lg font-semibold text-cyan-400">Upload CCTV Footage</h3>
+                        </div>
+                        <button type="button" onclick="clearAllData()" class="text-xs px-3 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500 rounded-lg transition flex items-center gap-1">
+                            <i data-lucide="trash-2" class="w-3 h-3"></i>
+                            Clear All Data
+                        </button>
                     </div>
                     
                     <form id="uploadForm" enctype="multipart/form-data" class="space-y-4">
@@ -726,9 +732,21 @@
             const formData = new FormData(e.target);
             const status = document.getElementById('uploadStatus');
             
+            // Auto-clear previous data before uploading new video
             status.className = 'mt-4 p-4 bg-cyan-500/20 border border-cyan-500 rounded-xl text-sm';
-            status.textContent = '⏳ Processing video...';
+            status.textContent = '🗑️ Clearing previous data...';
             status.style.display = 'block';
+            
+            try {
+                // Clear previous video data
+                await fetch('/clear_data/', { method: 'POST' });
+                
+                status.textContent = '⏳ Processing video...';
+            } catch (error) {
+                console.warn('Could not clear previous data:', error);
+                // Continue anyway
+                status.textContent = '⏳ Processing video...';
+            }
             
             try {
                 const response = await fetch('/upload/', {
@@ -962,6 +980,52 @@
                 closeModal();
             }
         });
+        
+        // Clear all data function
+        async function clearAllData() {
+            if (!confirm('⚠️ This will clear all indexed video data. Are you sure?')) {
+                return;
+            }
+            
+            const status = document.getElementById('uploadStatus');
+            status.className = 'mt-4 p-4 bg-cyan-500/20 border border-cyan-500 rounded-xl text-sm';
+            status.textContent = '🗑️ Clearing all data...';
+            status.style.display = 'block';
+            
+            try {
+                const response = await fetch('/clear_data/', { method: 'POST' });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    status.className = 'mt-4 p-4 bg-green-500/20 border border-green-500 rounded-xl text-sm';
+                    status.textContent = '✅ All data cleared successfully!';
+                    
+                    // Reset stats
+                    document.getElementById('totalFrames').textContent = '0';
+                    document.getElementById('totalDetections').textContent = '0';
+                    document.getElementById('totalAlerts').textContent = '0';
+                    
+                    // Clear results
+                    document.getElementById('resultsSection').style.display = 'none';
+                    document.getElementById('videoSection').style.display = 'none';
+                    
+                    // Reset alerts
+                    document.getElementById('alertsList').innerHTML = `
+                        <div class="text-sm text-slate-400 text-center py-4 flex items-center justify-center gap-2">
+                            <i data-lucide="check-circle" class="icon"></i>
+                            No alerts
+                        </div>
+                    `;
+                    lucide.createIcons();
+                } else {
+                    throw new Error(data.detail || 'Failed to clear data');
+                }
+            } catch (error) {
+                status.className = 'mt-4 p-4 bg-red-500/20 border border-red-500 rounded-xl text-sm';
+                status.textContent = '❌ Error: ' + error.message;
+                console.error('Clear data error:', error);
+            }
+        }
     </script>
 </body>
 </html>

@@ -121,3 +121,24 @@ def clear_clip_index():
     global image_embeddings, image_metadata
     image_embeddings = []
     image_metadata = []
+
+def remove_video_clip_embeddings(video_filename):
+    """
+    Remove CLIP embeddings for a specific video
+    
+    Args:
+        video_filename: Name of the video file to remove
+    """
+    global image_embeddings, image_metadata
+    
+    # Filter out embeddings for this video
+    new_embeddings = []
+    new_metadata = []
+    
+    for i, meta in enumerate(image_metadata):
+        if meta.get("video_filename") != video_filename:
+            new_embeddings.append(image_embeddings[i])
+            new_metadata.append(meta)
+    
+    image_embeddings = new_embeddings
+    image_metadata = new_metadata

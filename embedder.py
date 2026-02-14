@@ -57,3 +57,34 @@ def search(query, k=5):
 def get_index_size():
     """Return the number of items in the index"""
     return len(metadata)
+
+def clear_embeddings():
+    """Clear all embeddings and rebuild index"""
+    global index, metadata
+    metadata = []
+    index = faiss.IndexFlatL2(dimension)
+
+def remove_video_embeddings(video_filename):
+    """
+    Remove embeddings for a specific video
+    
+    Args:
+        video_filename: Name of the video file to remove
+    """
+    global index, metadata
+    
+    # Filter out metadata for this video
+    new_metadata = [m for m in metadata if m.get("video_filename") != video_filename]
+    
+    # Rebuild index if items were removed
+    if len(new_metadata) < len(metadata):
+        metadata = new_metadata
+        index = faiss.IndexFlatL2(dimension)
+        
+        # Re-add all remaining items
+        for meta in metadata:
+            objects = meta.get("objects", [])
+            text = " ".join(objects) if objects else "unknown"
+            vector = model.encode([text])
+            index.add(np.array(vector).astype('float32'))
+
