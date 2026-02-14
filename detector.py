@@ -17,28 +17,33 @@ def detect(image_path, confidence_threshold=0.5):
         confidence_threshold: Minimum confidence score for detections
     
     Returns:
-        tuple: (list of object labels, list of bounding boxes)
+        list: List of detection dictionaries with label, box, and confidence
     """
     if model is None:
-        return [], []
+        return []
     
     if not os.path.exists(image_path):
         print(f"Warning: Image not found: {image_path}")
-        return [], []
+        return []
     
     try:
         results = model(image_path, conf=confidence_threshold, verbose=False)
-        objects = []
-        boxes = []
+        detections = []
         
         for r in results:
             for box in r.boxes:
-                cls = int(box.cls)
+                x1, y1, x2, y2 = box.xyxy[0].tolist()
+                conf = float(box.conf[0])
+                cls = int(box.cls[0])
                 label = model.names[cls]
-                objects.append(label)
-                boxes.append(box.xyxy.tolist())
+                
+                detections.append({
+                    "label": label,
+                    "box": [x1, y1, x2, y2],
+                    "confidence": conf
+                })
         
-        return objects, boxes
+        return detections
     except Exception as e:
         print(f"Error during detection: {e}")
-        return [], []
+        return []

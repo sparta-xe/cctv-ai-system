@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  cctv-ai:
+    build: .
+    container_name: cctv-ai-system
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./storage:/app/storage
+      - ./templates:/app/templates
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=False
+    restart: unless-stopped
+    networks:
+      - cctv-network
+
+  # Optional: Redis for caching and queues
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: cctv-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   restart: unless-stopped
+  #   networks:
+  #     - cctv-network
+
+  # Optional: PostgreSQL for persistent storage
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: cctv-postgres
+  #   environment:
+  #     POSTGRES_DB: cctv_ai
+  #     POSTGRES_USER: cctv_user
+  #     POSTGRES_PASSWORD: change_me_in_production
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   restart: unless-stopped
+  #   networks:
+  #     - cctv-network
+
+networks:
+  cctv-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  postgres-data:

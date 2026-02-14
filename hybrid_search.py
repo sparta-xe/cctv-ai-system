@@ -62,7 +62,7 @@ def hybrid_search(query, top_k=10):
                     "total_score": clip_score
                 }
     
-    # Apply query filters
+    # Apply query filters and match specific detections
     filtered = []
     for image_key, data in combined.items():
         meta = data["meta"]
@@ -73,28 +73,39 @@ def hybrid_search(query, top_k=10):
             if not (parsed["time_range"]["start"] <= timestamp <= parsed["time_range"]["end"]):
                 continue
         
-        # Object filter
+        # Match specific detections to query
+        matched_detection_indices = []
+        detections = meta.get("detections", [])
+        
         if parsed.get("objects"):
-            detected_objects = meta.get("objects", [])
-            has_match = any(
-                obj in " ".join(detected_objects).lower()
-                for obj in parsed["objects"]
-            )
-            if has_match:
-                data["total_score"] += 0.2  # Boost for object match
+            # Match query objects to specific detections
+            for idx, det in enumerate(detections):
+                det_label = det.get("label", "").lower()
+                for query_obj in parsed["objects"]:
+                    if query_obj.lower() in det_label:
+                        matched_detection_indices.append(idx)
+                        data["total_score"] += 0.2  # Boost for object match
+                        break
+        else:
+            # No specific object filter - all detections are matches
+            matched_detection_indices = list(range(len(detections)))
+        
+        # Store matched detection indices
+        data["matched_detection_indices"] = matched_detection_indices
         
         filtered.append(data)
     
     # Sort by total score
     filtered.sort(key=lambda x: x["total_score"], reverse=True)
     
-    # Return top-k results with scores
+    # Return top-k results with scores and matched detection indices
     results = []
     for item in filtered[:top_k]:
         result = item["meta"].copy()
         result["search_score"] = round(item["total_score"], 3)
         result["text_score"] = round(item["text_score"], 3)
         result["clip_score"] = round(item["clip_score"], 3)
+        result["matched_detection_indices"] = item["matched_detection_indices"]
         results.append(result)
     
     return results

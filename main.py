@@ -34,10 +34,16 @@ os.makedirs(HIGHLIGHTS_FOLDER, exist_ok=True)
 
 # Serve static files (frames)
 app.mount("/storage", StaticFiles(directory="storage"), name="storage")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request):
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+    response = templates.TemplateResponse("dashboard.html", {"request": request})
+    # Add cache-busting headers
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 @app.get("/health")
 def health_check():
@@ -111,7 +117,11 @@ async def upload_video(file: UploadFile):
                 img_path = f"{FRAME_FOLDER}/frame_{int(timestamp)}.jpg"
                 cv2.imwrite(img_path, frame)
                 
-                objects, boxes = detect(img_path)
+                detections = detect(img_path)
+                
+                # Extract objects list for backward compatibility
+                objects = [d["label"] for d in detections]
+                
                 person_id = None
                 if "person" in objects:
                     person_id = assign_id(img_path)
@@ -119,9 +129,9 @@ async def upload_video(file: UploadFile):
                 meta = {
                     "image": img_path,
                     "timestamp": timestamp,
-                    "objects": objects,
+                    "detections": detections,  # Full detection data with boxes and confidence
+                    "objects": objects,  # For backward compatibility
                     "person_id": person_id,
-                    "boxes": boxes,
                     "video_path": path,
                     "video_filename": video_filename
                 }
@@ -195,16 +205,17 @@ def query(
             "message": "No results found. Try a different query."
         }
     
-    # Add timeline data for video playback
+    # Add timeline data for video playback with matched detections
     timeline_markers = []
     video_filename = None
     
     for result in results:
         timeline_markers.append({
-            "timestamp": result.get("timestamp", 0),
+            "timestamp": int(result.get("timestamp", 0)),  # Ensure integer seconds
             "objects": result.get("objects", []),
             "person_id": result.get("person_id"),
-            "search_score": result.get("search_score", 0)
+            "search_score": result.get("search_score", 0),
+            "matched_detection_indices": result.get("matched_detection_indices", [])
         })
         if not video_filename and "video_filename" in result:
             video_filename = result.get("video_filename")
@@ -251,10 +262,11 @@ def get_stats():
     }
 
 @app.get("/annotated_image/{frame_name}")
-def get_annotated_image(frame_name: str, query: str = ""):
+def get_annotated_image(frame_name: str, query: str = "", matched_indices: str = ""):
     """
     Serve an annotated image with bounding boxes drawn on detected objects
     If query is provided, highlight only matching objects
+    matched_indices: comma-separated list of detection indices to highlight
     """
     image_path = f"{FRAME_FOLDER}/{frame_name}"
     
@@ -274,11 +286,18 @@ def get_annotated_image(frame_name: str, query: str = ""):
             frame_data = frame
             break
     
-    # Parse query to extract object names
+    # Parse matched indices
+    highlight_indices = set()
+    if matched_indices:
+        try:
+            highlight_indices = set(int(idx) for idx in matched_indices.split(",") if idx.strip())
+        except ValueError:
+            pass
+    
+    # Parse query to extract object names (fallback if no indices provided)
     query_objects = []
-    if query:
+    if query and not highlight_indices:
         query_lower = query.lower()
-        # Extract common object names from query
         common_objects = ["person", "car", "truck", "bus", "motorcycle", "bicycle", 
                          "backpack", "handbag", "suitcase", "bag", "bottle", "cup",
                          "chair", "couch", "bed", "table", "laptop", "phone", "book"]
@@ -287,28 +306,32 @@ def get_annotated_image(frame_name: str, query: str = ""):
                 query_objects.append(obj)
     
     # Draw bounding boxes if we have them
-    if frame_data and "boxes" in frame_data:
-        boxes = frame_data["boxes"]
-        objects = frame_data.get("objects", [])
+    if frame_data and "detections" in frame_data:
+        detections = frame_data["detections"]
         
-        for i, box in enumerate(boxes):
-            if box and len(box) > 0:
-                # Extract coordinates
-                x1, y1, x2, y2 = map(int, box[0][:4])
+        for idx, det in enumerate(detections):
+            box = det.get("box", [])
+            label = det.get("label", "object")
+            confidence = det.get("confidence", 0)
+            
+            if len(box) >= 4:
+                x1, y1, x2, y2 = map(int, box[:4])
                 
-                # Get object label
-                label = objects[i] if i < len(objects) else "object"
-                
-                # Check if this object matches the query
+                # Check if this detection should be highlighted
                 is_query_match = False
-                if query_objects:
+                
+                if highlight_indices:
+                    # Use matched indices if provided
+                    is_query_match = idx in highlight_indices
+                elif query_objects:
+                    # Fallback to query object matching
                     for query_obj in query_objects:
                         if query_obj in label.lower():
                             is_query_match = True
                             break
                 else:
-                    # If no query, show all objects
-                    is_query_match = True
+                    # No query - show all objects normally
+                    is_query_match = False
                 
                 # Choose color and thickness based on match
                 if is_query_match:
@@ -327,7 +350,7 @@ def get_annotated_image(frame_name: str, query: str = ""):
                     cv2.rectangle(img, (x1, y1), (x2, y2), color, thickness)
                     
                     # Draw label background with highlight
-                    label_text = f">>> {label.upper()} <<<"
+                    label_text = f">>> {label.upper()} ({confidence:.2f}) <<<"
                     font_scale = 0.8
                     font_thickness = 2
                     (text_width, text_height), _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness)
@@ -346,7 +369,7 @@ def get_annotated_image(frame_name: str, query: str = ""):
                     cv2.rectangle(img, (x1, y1), (x2, y2), color, thickness)
                     
                     # Small gray label
-                    label_text = label
+                    label_text = f"{label} ({confidence:.2f})"
                     font_scale = 0.4
                     font_thickness = 1
                     (text_width, text_height), _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness)
