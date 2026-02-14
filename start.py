@@ -6,8 +6,50 @@ Handles initialization and server startup
 
 import os
 import sys
+import subprocess
 import uvicorn
 from pathlib import Path
+
+def kill_port_process(port=8000):
+    """Kill any process using the specified port"""
+    try:
+        if sys.platform == "win32":
+            # Windows
+            result = subprocess.run(
+                ["netstat", "-ano"],
+                capture_output=True,
+                text=True
+            )
+            
+            for line in result.stdout.split('\n'):
+                if f':{port}' in line and 'LISTENING' in line:
+                    parts = line.split()
+                    pid = parts[-1]
+                    print(f"⚠️  Port {port} is in use by process {pid}")
+                    print(f"   Killing process {pid}...")
+                    subprocess.run(["taskkill", "/PID", pid, "/F"], 
+                                 capture_output=True)
+                    print(f"✅ Process killed successfully")
+                    return True
+        else:
+            # Linux/Mac
+            result = subprocess.run(
+                ["lsof", f"-ti:{port}"],
+                capture_output=True,
+                text=True
+            )
+            
+            if result.stdout.strip():
+                pid = result.stdout.strip()
+                print(f"⚠️  Port {port} is in use by process {pid}")
+                print(f"   Killing process {pid}...")
+                subprocess.run(["kill", "-9", pid])
+                print(f"✅ Process killed successfully")
+                return True
+    except Exception as e:
+        print(f"⚠️  Could not check/kill port process: {e}")
+    
+    return False
 
 def create_directories():
     """Create necessary directories if they don't exist"""
@@ -74,6 +116,9 @@ def main():
     port = int(os.getenv("PORT", 8000))
     reload = os.getenv("RELOAD", "false").lower() == "true"
     workers = int(os.getenv("WORKERS", 1))
+    
+    # Check and kill any process using the port
+    kill_port_process(port)
     
     print(f"\n🚀 Starting server...")
     print(f"   Host: {host}")
